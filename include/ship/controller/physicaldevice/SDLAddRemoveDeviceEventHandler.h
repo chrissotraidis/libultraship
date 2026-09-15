@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ship/window/gui/GuiWindow.h"
+#include <cstdint>
 
 namespace Ship {
 
@@ -26,5 +27,9 @@ class SDLAddRemoveDeviceEventHandler : public GuiWindow {
 
     /** @brief Polls SDL events and dispatches device connect/disconnect callbacks. */
     void UpdateElement() override;
+
+  private:
+    bool mDidInitialReconcile = false;
+    uint32_t mLastReconcileTicks = 0;
 };
 } // namespace Ship

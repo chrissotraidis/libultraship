@@ -67,6 +67,9 @@ class Audio {
      */
     AudioChannelsSetting GetAudioChannels() const;
 
+    /** @brief Pauses or resumes the active audio backend. */
+    void SetPaused(bool paused);
+
   protected:
     /** @brief (Re)initialises the AudioPlayer for the current backend and channel settings. */
     void InitAudioPlayer();

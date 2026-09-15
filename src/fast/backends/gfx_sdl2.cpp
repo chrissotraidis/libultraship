@@ -9,6 +9,11 @@
 #endif
 
 #include "ship/Context.h"
+#ifdef __IOS__
+#include "ship/audio/Audio.h"
+#include "ship/config/Config.h"
+#include "ship/window/Window.h"
+#endif
 #include "ship/config/ConsoleVariable.h"
 #include "ship/controller/controldeck/ControlDeck.h"
 #include "ship/window/FileDropMgr.h"
@@ -50,6 +55,27 @@ LONG_PTR SDL_WndProc;
 #endif
 
 namespace Fast {
+#ifdef __IOS__
+extern "C" void SpaghettiPad_OnWindowCreated(struct SDL_Window*);
+
+static void SaveIOSConfiguration() {
+    auto context = Ship::Context::GetInstance();
+    if (context->GetWindow() != nullptr) {
+        context->GetWindow()->SaveWindowToConfig();
+    }
+    if (context->GetConfig() != nullptr) {
+        context->GetConfig()->Save();
+    }
+}
+
+static void SetIOSAudioPaused(bool paused) {
+    auto audio = Ship::Context::GetInstance()->GetAudio();
+    if (audio != nullptr) {
+        audio->SetPaused(paused);
+    }
+}
+#endif
+
 const SDL_Scancode lus_to_sdl_table[] = {
     SDL_SCANCODE_UNKNOWN,
     SDL_SCANCODE_ESCAPE,
@@ -232,7 +258,7 @@ void GfxWindowBackendSDL2::SetFullscreenImpl(bool on, bool call_callback) {
         }
     }
 
-#if defined(__APPLE__)
+#if defined(__APPLE__) && !defined(__IOS__)
     // Implement fullscreening with native macOS APIs
     if (on != isNativeMacOSFullscreenActive(mWnd)) {
         toggleNativeMacOSFullscreen(mWnd);
@@ -323,7 +349,9 @@ void GfxWindowBackendSDL2::Init(const char* gameName, const char* gfxApiName, bo
     /* fix DPI scaling issues on Windows */
     SDL_SetHint(SDL_HINT_WINDOWS_DPI_AWARENESS, "permonitorv2");
 #endif
-
+#ifdef __IOS__
+    SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight");
+#endif
     SDL_Init(SDL_INIT_VIDEO);
 
     SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
@@ -383,6 +411,9 @@ void GfxWindowBackendSDL2::Init(const char* gameName, const char* gfxApiName, bo
     }
 
     mWnd = SDL_CreateWindow(title, posX, posY, mWindowWidth, mWindowHeight, flags);
+#ifdef __IOS__
+    SpaghettiPad_OnWindowCreated(mWnd);
+#endif
 #ifdef _WIN32
     // Get Windows window handle and use it to subclass the window procedure.
     // Needed to circumvent SDLs DPI scaling problems under windows (original does only scale *sometimes*).
@@ -587,9 +618,19 @@ void GfxWindowBackendSDL2::HandleSingleEvent(SDL_Event& event) {
             OnKeyup(event.key.keysym.scancode);
             break;
         case SDL_MOUSEBUTTONDOWN:
+#ifdef __IOS__
+            if (event.button.which == SDL_TOUCH_MOUSEID) {
+                break;
+            }
+#endif
             OnMouseButtonDown(event.button.button - 1);
             break;
         case SDL_MOUSEBUTTONUP:
+#ifdef __IOS__
+            if (event.button.which == SDL_TOUCH_MOUSEID) {
+                break;
+            }
+#endif
             OnMouseButtonUp(event.button.button - 1);
             break;
         case SDL_MOUSEWHEEL:
@@ -618,6 +659,33 @@ void GfxWindowBackendSDL2::HandleSingleEvent(SDL_Event& event) {
         case SDL_DROPFILE:
             Ship::Context::GetInstance()->GetFileDropMgr()->SetDroppedFile(event.drop.file);
             break;
+#ifdef __IOS__
+        case SDL_APP_WILLENTERBACKGROUND:
+            mIsBackgrounded = true;
+            SaveIOSConfiguration();
+            SetIOSAudioPaused(true);
+            break;
+        case SDL_APP_DIDENTERBACKGROUND:
+            break;
+        case SDL_APP_WILLENTERFOREGROUND:
+            break;
+        case SDL_APP_DIDENTERFOREGROUND:
+            Ship::Context::GetInstance()
+                ->GetControlDeck()
+                ->GetConnectedPhysicalDeviceManager()
+                ->ReconcileConnectedSDLGamepads("foreground resume");
+            SetIOSAudioPaused(false);
+            mIsBackgrounded = false;
+            break;
+        case SDL_APP_LOWMEMORY:
+            SPDLOG_WARN("iOS reported low memory");
+            break;
+        case SDL_APP_TERMINATING:
+            mIsBackgrounded = true;
+            SaveIOSConfiguration();
+            SetIOSAudioPaused(true);
+            break;
+#endif
         case SDL_QUIT:
             Close();
             break;
@@ -630,12 +698,12 @@ void GfxWindowBackendSDL2::HandleEvents() {
     while (SDL_PeepEvents(&event, 1, SDL_GETEVENT, SDL_FIRSTEVENT, SDL_CONTROLLERDEVICEADDED - 1) > 0) {
         HandleSingleEvent(event);
     }
-    while (SDL_PeepEvents(&event, 1, SDL_GETEVENT, SDL_CONTROLLERDEVICEREMOVED + 1, SDL_LASTEVENT) > 0) {
+    while (SDL_PeepEvents(&event, 1, SDL_GETEVENT, SDL_CONTROLLERDEVICEREMAPPED + 1, SDL_LASTEVENT) > 0) {
         HandleSingleEvent(event);
     }
 
     // resync fullscreen state
-#ifdef __APPLE__
+#if defined(__APPLE__) && !defined(__IOS__)
     auto nextFullscreenState = isNativeMacOSFullscreenActive(mWnd);
     if (mFullScreen != nextFullscreenState) {
         mFullScreen = nextFullscreenState;
@@ -647,7 +715,11 @@ void GfxWindowBackendSDL2::HandleEvents() {
 }
 
 bool GfxWindowBackendSDL2::IsFrameReady() {
+#ifdef __IOS__
+    return !mIsBackgrounded;
+#else
     return true;
+#endif
 }
 
 static uint64_t qpc_to_100ns(uint64_t qpc) {

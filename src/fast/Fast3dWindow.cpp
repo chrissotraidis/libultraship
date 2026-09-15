@@ -120,10 +120,18 @@ void Fast3dWindow::SetMaximumFrameLatency(int32_t latency) {
 }
 
 void Fast3dWindow::GetPixelDepthPrepare(float x, float y) {
+    if (!IsFrameReady()) {
+        return;
+    }
+
     mInterpreter->GetPixelDepthPrepare(x, y);
 }
 
 uint16_t Fast3dWindow::GetPixelDepth(float x, float y) {
+    if (!IsFrameReady()) {
+        return 0;
+    }
+
     return mInterpreter->GetPixelDepth(x, y);
 }
 

@@ -7,6 +7,12 @@
 #include <string>
 #include <vector>
 
+#ifdef __IOS__
+#include <SDL2/SDL.h>
+extern "C" __attribute__((weak)) void SpaghettiPad_SetTouchControlsMenuVisible(int) {
+}
+#endif
+
 #include "ship/config/Config.h"
 #include "ship/Context.h"
 #include "ship/config/ConsoleVariable.h"
@@ -114,9 +120,19 @@ void Gui::Init(GuiWindowInitData windowImpl) {
                                                           &iconsConfig, sIconsRanges);
 
 #if defined(__ANDROID__)
-    // Scale everything by 2 for Android
     ImGui::GetStyle().ScaleAllSizes(2.0f);
     mImGuiIo->FontGlobalScale = 2.0f;
+#elif defined(__IOS__)
+    SDL_Rect displayBounds = {};
+    float uiScale = 1.0f;
+    if (SDL_GetDisplayUsableBounds(0, &displayBounds) == 0) {
+        const int shortestSide = displayBounds.w < displayBounds.h ? displayBounds.w : displayBounds.h;
+        if (shortestSide >= 600) {
+            uiScale = 2.0f;
+        }
+    }
+    ImGui::GetStyle().ScaleAllSizes(uiScale);
+    mImGuiIo->FontGlobalScale = uiScale;
 #endif
 
     mImGuiIniPath = Context::GetPathRelativeToAppDirectory("imgui.ini");
@@ -766,6 +782,9 @@ void Gui::StartDraw() {
     StartFrame();
     // Draw the gui menus
     DrawMenu();
+#ifdef __IOS__
+    SpaghettiPad_SetTouchControlsMenuVisible(GetMenuOrMenubarVisible());
+#endif
     // Calculate the available space the game can render to
     CalculateGameViewport();
 }

@@ -1,4 +1,6 @@
-set(PLATFORM "OS64COMBINED")
+if(NOT DEFINED PLATFORM)
+    set(PLATFORM "OS64COMBINED")
+endif()
 include(FetchContent)
 FetchContent_Declare(iostoolchain
     GIT_REPOSITORY https://github.com/leetal/ios-cmake

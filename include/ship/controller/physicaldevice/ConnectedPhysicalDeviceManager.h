@@ -5,6 +5,9 @@
 #include <vector>
 #include <string>
 #include <SDL2/SDL.h>
+#ifdef __IOS__
+#include "SpaghettiPadControllerSlots.h"
+#endif
 
 namespace Ship {
 
@@ -82,9 +85,17 @@ class ConnectedPhysicalDeviceManager {
     /** @brief Re-scans all connected SDL gamepads and rebuilds the internal maps. */
     void RefreshConnectedSDLGamepads();
 
+    /** @brief Reconciles stored handles with SDL's current device list. */
+    void ReconcileConnectedSDLGamepads(const char* reason);
+
   private:
+    void CloseConnectedSDLGamepads();
+
     std::unordered_map<int32_t, SDL_GameController*> mConnectedSDLGamepads;
     std::unordered_map<int32_t, std::string> mConnectedSDLGamepadNames;
     std::unordered_map<uint8_t, std::unordered_set<int32_t>> mIgnoredInstanceIds;
+#ifdef __IOS__
+    SpaghettiPadControllerSlots mIOSControllerSlots;
+#endif
 };
 } // namespace Ship

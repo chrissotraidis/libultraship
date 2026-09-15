@@ -69,6 +69,9 @@ target_include_directories(libultraship
     PRIVATE ${CMAKE_CURRENT_BINARY_DIR}
     PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${INCLUDE_DIR} ${ADDITIONAL_LIB_INCLUDES}
 )
+if(CMAKE_SYSTEM_NAME STREQUAL "iOS" AND SPAGHETTIPAD_SHELL_DIR)
+    target_include_directories(libultraship PRIVATE "${SPAGHETTIPAD_SHELL_DIR}")
+endif()
 
 #=================== Linking ===================
 if(INCLUDE_MPQ_SUPPORT)

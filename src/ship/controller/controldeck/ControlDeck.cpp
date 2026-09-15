@@ -24,7 +24,11 @@ ControlDeck::~ControlDeck() {
 
 void ControlDeck::Init(uint8_t* controllerBits) {
     mControllerBits = controllerBits;
+#ifdef __IOS__
+    *mControllerBits |= 0x0F;
+#else
     *mControllerBits |= 1 << 0;
+#endif
 
     for (auto port : mPorts) {
         if (port->GetConnectedController()->HasConfig()) {
@@ -32,12 +36,26 @@ void ControlDeck::Init(uint8_t* controllerBits) {
         }
     }
 
+#ifdef __IOS__
+    for (size_t portIndex = 0; portIndex < mPorts.size(); portIndex++) {
+        auto controller = mPorts[portIndex]->GetConnectedController();
+        if (controller->HasConfig()) {
+            continue;
+        }
+        if (portIndex == 0) {
+            controller->AddDefaultMappings(PhysicalDeviceType::Keyboard);
+            controller->AddDefaultMappings(PhysicalDeviceType::Mouse);
+        }
+        controller->AddDefaultMappings(PhysicalDeviceType::SDLGamepad);
+    }
+#else
     // if we don't have a config for controller 1, set default bindings
     if (!mPorts[0]->GetConnectedController()->HasConfig()) {
         mPorts[0]->GetConnectedController()->AddDefaultMappings(PhysicalDeviceType::Keyboard);
         mPorts[0]->GetConnectedController()->AddDefaultMappings(PhysicalDeviceType::Mouse);
         mPorts[0]->GetConnectedController()->AddDefaultMappings(PhysicalDeviceType::SDLGamepad);
     }
+#endif
 }
 
 bool ControlDeck::ProcessKeyboardEvent(KbEventType eventType, KbScancode scancode) {

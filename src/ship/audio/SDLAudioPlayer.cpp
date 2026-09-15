@@ -21,6 +21,9 @@ void SDLAudioPlayer::DoClose() {
 }
 
 bool SDLAudioPlayer::DoInit() {
+#ifdef __IOS__
+    SDL_SetHint(SDL_HINT_AUDIO_CATEGORY, "playback");
+#endif
     if (SDL_Init(SDL_INIT_AUDIO) != 0) {
         SPDLOG_ERROR("SDL init error: {}", SDL_GetError());
         return false;
@@ -53,8 +56,19 @@ int SDLAudioPlayer::Buffered() {
     return SDL_GetQueuedAudioSize(mDevice) / (sizeof(int16_t) * mNumChannels);
 }
 
+void SDLAudioPlayer::SetPaused(bool paused) {
+    mPaused = paused;
+    if (mDevice == 0) {
+        return;
+    }
+    SDL_PauseAudioDevice(mDevice, paused ? 1 : 0);
+    if (paused) {
+        SDL_ClearQueuedAudio(mDevice);
+    }
+}
+
 void SDLAudioPlayer::DoPlay(const uint8_t* buf, size_t len) {
-    if (Buffered() < 6000) {
+    if (!mPaused && Buffered() < 6000) {
         // Don't fill the audio buffer too much in case this happens
         SDL_QueueAudio(mDevice, buf, len);
     }
