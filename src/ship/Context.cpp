@@ -165,9 +165,12 @@ bool Context::InitLogging(spdlog::level::level_enum debugBuildLogLevel,
         sinks.push_back(systemConsoleSink);
 #endif
 
-        auto logPath = GetPathRelativeToAppDirectory(("logs/" + GetName() + ".log"));
-        auto fileSink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(logPath, 1024 * 1024 * 10, 10);
-        sinks.push_back(fileSink);
+        // Embedding shells can own bounded persistence and sharing of stdout.
+        if (std::getenv("SHIP_LOG_STDIO_ONLY") == nullptr) {
+            auto logPath = GetPathRelativeToAppDirectory(("logs/" + GetName() + ".log"));
+            auto fileSink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(logPath, 1024 * 1024 * 10, 10);
+            sinks.push_back(fileSink);
+        }
 #ifdef _DEBUG
         mLogger = std::make_shared<spdlog::logger>("multi_sink", sinks.begin(), sinks.end());
         GetLogger()->set_level(debugBuildLogLevel);
