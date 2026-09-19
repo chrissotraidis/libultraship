@@ -552,6 +552,9 @@ std::string Context::GetAppDirectoryPath(const std::string& appName) {
 #endif
 
 #ifdef __IOS__
+    if (const char* support = getenv("SHIP_HOME"); support && *support) {
+        return support;
+    }
     const char* home = getenv("HOME");
     return std::string(home) + "/Documents";
 #endif
