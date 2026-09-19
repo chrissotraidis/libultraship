@@ -71,6 +71,15 @@ class AudioPlayer {
     /** @brief Returns true if Init() has been called and succeeded. */
     bool IsInitialized();
 
+    /**
+     * @brief Pauses or resumes output without destroying the audio backend.
+     *
+     * Backends that do not require explicit pause handling may keep the
+     * default no-op implementation.
+     */
+    virtual void SetPaused(bool) {
+    }
+
     /** @brief Returns the configured output sample rate in Hz. */
     int32_t GetSampleRate() const;
 
@@ -158,7 +167,7 @@ class AudioPlayer {
 #include "WasapiAudioPlayer.h"
 #endif
 
-#ifdef __APPLE__
+#if defined(__APPLE__) && !defined(__IOS__)
 #include "CoreAudioAudioPlayer.h"
 #endif
 

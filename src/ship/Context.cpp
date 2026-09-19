@@ -465,11 +465,6 @@ std::string Context::GetAppBundlePath() {
     }
 #endif
 
-#ifdef __IOS__
-    const char* home = getenv("HOME");
-    return std::string(home) + "/Documents";
-#endif
-
 #ifdef NON_PORTABLE
     return CMAKE_INSTALL_PREFIX;
 #else

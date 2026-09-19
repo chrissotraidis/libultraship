@@ -10,6 +10,13 @@ extern "C" {
 /** @brief Returns true if the application window is running (has not been closed). */
 API_EXPORT bool WindowIsRunning();
 
+/**
+ * @brief Processes window events and returns true when the next game frame may run.
+ *
+ * A false result yields briefly so suspended mobile apps do not spin their game loop.
+ */
+API_EXPORT bool WindowIsFrameReady();
+
 /** @brief Returns the current width of the game window in pixels. */
 API_EXPORT uint32_t WindowGetWidth();
 

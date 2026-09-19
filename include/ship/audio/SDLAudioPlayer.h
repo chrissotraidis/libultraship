@@ -1,5 +1,6 @@
 #pragma once
 #include "AudioPlayer.h"
+#include <atomic>
 #include <SDL2/SDL.h>
 
 namespace Ship {
@@ -29,6 +30,9 @@ class SDLAudioPlayer final : public AudioPlayer {
      */
     int Buffered() override;
 
+    /** @brief Pauses/resumes the SDL device and drops audio queued before a pause. */
+    void SetPaused(bool paused) override;
+
   protected:
     /**
      * @brief Opens the SDL audio device with the configured settings.
@@ -51,5 +55,6 @@ class SDLAudioPlayer final : public AudioPlayer {
   private:
     SDL_AudioDeviceID mDevice = 0; ///< Handle to the opened SDL audio device.
     int32_t mNumChannels = 2;      ///< Number of output channels (2 for stereo, 6 for 5.1).
+    std::atomic<bool> mPaused = false;
 };
 } // namespace Ship

@@ -11,6 +11,11 @@
 #endif
 
 #include "ship/Context.h"
+#ifdef __IOS__
+#include "ship/audio/Audio.h"
+#include "ship/config/Config.h"
+#include "ship/window/Window.h"
+#endif
 #include "ship/config/ConsoleVariable.h"
 #include "ship/controller/controldeck/ControlDeck.h"
 #include "ship/window/FileDropMgr.h"
@@ -53,6 +58,25 @@ LONG_PTR SDL_WndProc;
 #endif
 
 namespace Fast {
+#ifdef __IOS__
+static void SaveIOSConfiguration() {
+    auto context = Ship::Context::GetRawInstance();
+    if (context->GetWindow() != nullptr) {
+        context->GetWindow()->SaveWindowToConfig();
+    }
+    if (context->GetConfig() != nullptr) {
+        context->GetConfig()->Save();
+    }
+}
+
+static void SetIOSAudioPaused(bool paused) {
+    auto audio = Ship::Context::GetRawInstance()->GetAudio();
+    if (audio != nullptr) {
+        audio->SetPaused(paused);
+    }
+}
+#endif
+
 const SDL_Scancode lus_to_sdl_table[] = {
     SDL_SCANCODE_UNKNOWN,
     SDL_SCANCODE_ESCAPE,
@@ -215,6 +239,16 @@ GfxWindowBackendSDL2::~GfxWindowBackendSDL2() {
 }
 
 void GfxWindowBackendSDL2::SetFullscreenImpl(bool on, bool call_callback) {
+#ifdef __IOS__
+    // An iOS application window is already full-screen. Switching SDL desktop
+    // display modes can detach or invalidate the Metal drawable.
+    mFullScreen = false;
+    if (mOnFullscreenChanged != nullptr && call_callback) {
+        mOnFullscreenChanged(false);
+    }
+    return;
+#endif
+
     if (mFullScreen == on) {
         return;
     }
@@ -235,7 +269,7 @@ void GfxWindowBackendSDL2::SetFullscreenImpl(bool on, bool call_callback) {
         }
     }
 
-#if defined(__APPLE__)
+#if defined(__APPLE__) && !defined(__IOS__)
     // Implement fullscreening with native macOS APIs
     if (on != isNativeMacOSFullscreenActive(mWnd)) {
         toggleNativeMacOSFullscreen(mWnd);
@@ -434,6 +468,13 @@ void GfxWindowBackendSDL2::Init(const char* gameName, const char* gfxApiName, bo
         }
 
         SDL_GetRendererOutputSize(mRenderer, &mWindowWidth, &mWindowHeight);
+#ifdef __IOS__
+        int windowWidth = 0;
+        int windowHeight = 0;
+        SDL_GetWindowSize(mWnd, &windowWidth, &windowHeight);
+        SPDLOG_INFO("iOS display initialized: window {}x{}, drawable {}x{}", windowWidth, windowHeight, mWindowWidth,
+                    mWindowHeight);
+#endif
         window_impl.Metal = { mWnd, mRenderer };
         window_impl.Backend = WindowBackend::FAST3D_SDL_METAL;
     }
@@ -626,9 +667,19 @@ void GfxWindowBackendSDL2::HandleSingleEvent(SDL_Event& event) {
             OnKeyup(event.key.keysym.scancode);
             break;
         case SDL_MOUSEBUTTONDOWN:
+#ifdef __IOS__
+            if (event.button.which == SDL_TOUCH_MOUSEID) {
+                break;
+            }
+#endif
             OnMouseButtonDown(event.button.button - 1);
             break;
         case SDL_MOUSEBUTTONUP:
+#ifdef __IOS__
+            if (event.button.which == SDL_TOUCH_MOUSEID) {
+                break;
+            }
+#endif
             OnMouseButtonUp(event.button.button - 1);
             break;
         case SDL_MOUSEWHEEL:
@@ -657,6 +708,36 @@ void GfxWindowBackendSDL2::HandleSingleEvent(SDL_Event& event) {
         case SDL_DROPFILE:
             Ship::Context::GetRawInstance()->GetFileDropMgr()->SetDroppedFile(event.drop.file);
             break;
+#ifdef __IOS__
+        case SDL_APP_WILLENTERBACKGROUND:
+            mIsBackgrounded = true;
+            SaveIOSConfiguration();
+            SetIOSAudioPaused(true);
+            break;
+        case SDL_APP_DIDENTERBACKGROUND:
+            break;
+        case SDL_APP_WILLENTERFOREGROUND:
+            break;
+        case SDL_APP_DIDENTERFOREGROUND:
+            Ship::Context::GetRawInstance()
+                ->GetControlDeck()
+                ->GetConnectedPhysicalDeviceManager()
+                ->RefreshConnectedSDLGamepads("foreground");
+            if (gui != nullptr) {
+                gui->RefreshImGuiGamepads();
+            }
+            SetIOSAudioPaused(false);
+            mIsBackgrounded = false;
+            break;
+        case SDL_APP_LOWMEMORY:
+            SPDLOG_WARN("iOS reported low memory");
+            break;
+        case SDL_APP_TERMINATING:
+            mIsBackgrounded = true;
+            SaveIOSConfiguration();
+            SetIOSAudioPaused(true);
+            break;
+#endif
         case SDL_QUIT:
             Close();
             break;
@@ -669,12 +750,12 @@ void GfxWindowBackendSDL2::HandleEvents() {
     while (SDL_PeepEvents(&event, 1, SDL_GETEVENT, SDL_FIRSTEVENT, SDL_CONTROLLERDEVICEADDED - 1) > 0) {
         HandleSingleEvent(event);
     }
-    while (SDL_PeepEvents(&event, 1, SDL_GETEVENT, SDL_CONTROLLERDEVICEREMOVED + 1, SDL_LASTEVENT) > 0) {
+    while (SDL_PeepEvents(&event, 1, SDL_GETEVENT, SDL_CONTROLLERDEVICEREMAPPED + 1, SDL_LASTEVENT) > 0) {
         HandleSingleEvent(event);
     }
 
     // resync fullscreen state
-#ifdef __APPLE__
+#if defined(__APPLE__) && !defined(__IOS__)
     auto nextFullscreenState = isNativeMacOSFullscreenActive(mWnd);
     if (mFullScreen != nextFullscreenState) {
         mFullScreen = nextFullscreenState;
@@ -686,7 +767,11 @@ void GfxWindowBackendSDL2::HandleEvents() {
 }
 
 bool GfxWindowBackendSDL2::IsFrameReady() {
+#ifdef __IOS__
+    return !mIsBackgrounded;
+#else
     return true;
+#endif
 }
 
 static uint64_t qpc_to_100ns(uint64_t qpc) {

@@ -29,6 +29,10 @@ int32_t osContInit(OSMesgQueue* mq, uint8_t* controllerBits, OSContStatus* statu
         exit(EXIT_FAILURE);
     }
 
+    Ship::Context::GetRawInstance()
+        ->GetControlDeck()
+        ->GetConnectedPhysicalDeviceManager()
+        ->RefreshConnectedSDLGamepads("startup");
     Ship::Context::GetRawInstance()->GetControlDeck()->Init(controllerBits);
 
     return 0;

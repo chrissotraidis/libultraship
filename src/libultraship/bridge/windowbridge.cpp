@@ -2,6 +2,9 @@
 #include "ship/window/Window.h"
 #include "ship/Context.h"
 
+#include <chrono>
+#include <thread>
+
 extern "C" {
 
 uint32_t WindowGetWidth() {
@@ -18,6 +21,17 @@ float WindowGetAspectRatio() {
 
 bool WindowIsRunning() {
     return Ship::Context::GetRawInstance()->GetWindow()->IsRunning();
+}
+
+bool WindowIsFrameReady() {
+    auto window = Ship::Context::GetRawInstance()->GetWindow();
+    window->HandleEvents();
+
+    const bool ready = window->IsRunning() && window->IsFrameReady();
+    if (!ready) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(16));
+    }
+    return ready;
 }
 
 int32_t WindowGetPosX() {

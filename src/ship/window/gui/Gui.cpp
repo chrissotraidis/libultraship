@@ -7,6 +7,11 @@
 #include <string>
 #include <vector>
 
+#ifdef __IOS__
+#include <SDL2/SDL.h>
+extern "C" void HarkinianPad_SetTouchControlsMenuVisible(int visible);
+#endif
+
 #include "ship/config/Config.h"
 #include "ship/Context.h"
 #include "ship/config/ConsoleVariable.h"
@@ -71,9 +76,19 @@ void Gui::Init() {
                                                           &iconsConfig, sIconsRanges);
 
 #if defined(__ANDROID__)
-    // Scale everything by 2 for Android
     ImGui::GetStyle().ScaleAllSizes(2.0f);
     mImGuiIo->FontGlobalScale = 2.0f;
+#elif defined(__IOS__)
+    SDL_Rect displayBounds = {};
+    float uiScale = 1.0f;
+    if (SDL_GetDisplayUsableBounds(0, &displayBounds) == 0) {
+        const int shortestSide = displayBounds.w < displayBounds.h ? displayBounds.w : displayBounds.h;
+        if (shortestSide >= 600) {
+            uiScale = 2.0f;
+        }
+    }
+    ImGui::GetStyle().ScaleAllSizes(uiScale);
+    mImGuiIo->FontGlobalScale = uiScale;
 #endif
 
     mImGuiIniPath = Context::GetPathRelativeToAppDirectory("imgui.ini");
@@ -238,6 +253,10 @@ void Gui::DrawMenu() {
         GetMenu()->Update();
         GetMenu()->Draw();
     }
+
+#ifdef __IOS__
+    HarkinianPad_SetTouchControlsMenuVisible(GetMenuOrMenubarVisible());
+#endif
 
     for (auto& windowIter : mGuiWindows) {
         windowIter.second->Update();

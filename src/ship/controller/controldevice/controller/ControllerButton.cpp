@@ -5,6 +5,10 @@
 #include "ship/controller/controldevice/controller/mapping/keyboard/KeyboardKeyToButtonMapping.h"
 #include "ship/controller/controldevice/controller/mapping/mouse/MouseButtonToButtonMapping.h"
 
+#ifdef __IOS__
+#include "libultraship/libultra/controller.h"
+#endif
+
 #include "ship/config/ConsoleVariable.h"
 #include "ship/utils/StringHelper.h"
 #include <sstream>
@@ -247,6 +251,23 @@ void ControllerButton::AddDefaultMappings(PhysicalDeviceType physicalDeviceType)
             AddButtonMapping(mapping);
         }
     }
+
+#ifdef __IOS__
+    if (physicalDeviceType == PhysicalDeviceType::Mouse) {
+        MouseBtn mouseButton = LUS_MOUSE_BTN_UNKNOWN;
+        if (mBitmask == BTN_A) {
+            mouseButton = LUS_MOUSE_BTN_LEFT;
+        } else if (mBitmask == BTN_B) {
+            mouseButton = LUS_MOUSE_BTN_RIGHT;
+        } else if (mBitmask == BTN_Z) {
+            mouseButton = LUS_MOUSE_BTN_MIDDLE;
+        }
+        if (mouseButton != LUS_MOUSE_BTN_UNKNOWN) {
+            AddButtonMapping(
+                std::make_shared<MouseButtonToButtonMapping>(mPortIndex, mBitmask, mouseButton));
+        }
+    }
+#endif
 
     for (auto [id, mapping] : mButtonMappings) {
         mapping->SaveToConfig();

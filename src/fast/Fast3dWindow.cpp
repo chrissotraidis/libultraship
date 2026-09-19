@@ -84,6 +84,12 @@ void Fast3dWindow::Init() {
 
     isFullscreen =
         Ship::Context::GetRawInstance()->GetConfig()->GetBool("Window.Fullscreen.Enabled", false) || gameMode;
+#ifdef __IOS__
+    // UIKit already owns the full-screen window. Desktop SDL fullscreen modes
+    // can leave the Metal view black or constrained to a stale saved size.
+    isFullscreen = false;
+    Ship::Context::GetRawInstance()->GetConfig()->SetBool("Window.Fullscreen.Enabled", false);
+#endif
     posX = Ship::Context::GetRawInstance()->GetConfig()->GetInt("Window.PositionX", 100);
     posY = Ship::Context::GetRawInstance()->GetConfig()->GetInt("Window.PositionY", 100);
 
@@ -126,10 +132,18 @@ void Fast3dWindow::SetMaximumFrameLatency(int32_t latency) {
 }
 
 void Fast3dWindow::GetPixelDepthPrepare(float x, float y) {
+    if (!IsFrameReady()) {
+        return;
+    }
+
     mInterpreter->GetPixelDepthPrepare(x, y);
 }
 
 uint16_t Fast3dWindow::GetPixelDepth(float x, float y) {
+    if (!IsFrameReady()) {
+        return 0;
+    }
+
     return mInterpreter->GetPixelDepth(x, y);
 }
 

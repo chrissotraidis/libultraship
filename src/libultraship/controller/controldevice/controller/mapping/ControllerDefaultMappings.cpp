@@ -51,7 +51,7 @@ void ControllerDefaultMappings::SetDefaultKeyboardKeyToButtonMappings(
         { BTN_L, { Ship::KbScancode::LUS_KB_E } },
         { BTN_R, { Ship::KbScancode::LUS_KB_R } },
         { BTN_Z, { Ship::KbScancode::LUS_KB_Z } },
-        { BTN_START, { Ship::KbScancode::LUS_KB_SPACE } },
+        { BTN_START, { Ship::KbScancode::LUS_KB_SPACE, Ship::KbScancode::LUS_KB_ENTER } },
         { BTN_CUP, { Ship::KbScancode::LUS_KB_ARROWKEY_UP } },
         { BTN_CDOWN, { Ship::KbScancode::LUS_KB_ARROWKEY_DOWN } },
         { BTN_CLEFT, { Ship::KbScancode::LUS_KB_ARROWKEY_LEFT } },
