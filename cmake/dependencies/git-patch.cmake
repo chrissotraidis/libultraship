@@ -27,35 +27,13 @@ function(patch_if_needed)
     set(ret ${ret} PARENT_SCOPE)
 endfunction()
 
-# Resets code and reapply patch, if old (potentially incompatible) patch applied
-function(patch_if_needed_with_reset)
-    patch_if_needed()
-    if(NOT ret EQUAL 0)
-        message(STATUS "Failed to patch in current state, clearing changes to reapply")
-        execute_process(
-            COMMAND git status --porcelain
-            RESULT_VARIABLE is_changed
-        )
-        if(NOT is_changed EQUAL 0)
-            message(WARNING "Patch inapplyable in clean state")
-            set(ret 1)
-        else()
-            execute_process(COMMAND git reset --hard)
-            patch_if_needed()
-        endif()
-    endif()
-    set(ret ${ret} PARENT_SCOPE)
-endfunction()
-
+# Preserve dependency edits. An incompatible patch needs inspection, never reset.
+# with_reset is accepted for compatibility with existing package declarations.
 message(STATUS "Trying to apply patch ${patch_file}")
-if(with_reset)
-    patch_if_needed_with_reset()
-else()
-    patch_if_needed()
-endif()
+patch_if_needed()
 
 if(NOT ret EQUAL 0)
-    message(FATAL_ERROR "Failed to apply patch ${patch_file}")
+    message(FATAL_ERROR "Failed to apply patch ${patch_file}; dependency files were preserved. Inspect the checkout before retrying.")
 else()
     message(STATUS "Successfully patched with ${patch_file}")
 endif()
