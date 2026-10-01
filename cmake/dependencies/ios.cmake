@@ -3,10 +3,15 @@ include(FetchContent)
 #=================== SDL2 ===================
 find_package(SDL2 QUIET)
 if (NOT ${SDL2_FOUND})
+    # SDL 2.32.10 predates UIKit scene startup required by the latest SDK.
+    # Use the same edit-preserving patch mechanism as other source dependencies.
+    set(sdl2_scene_patch ${CMAKE_CURRENT_SOURCE_DIR}/cmake/dependencies/patches/sdl2-uikit-scenes.patch)
     FetchContent_Declare(
         SDL2
         GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
         GIT_TAG release-2.32.10
+        PATCH_COMMAND ${CMAKE_COMMAND} -Dpatch_file=${sdl2_scene_patch}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/dependencies/git-patch.cmake
         OVERRIDE_FIND_PACKAGE
     )
     FetchContent_MakeAvailable(SDL2)
