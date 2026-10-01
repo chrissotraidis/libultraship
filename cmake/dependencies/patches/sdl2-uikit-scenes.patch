@@ -127,7 +127,7 @@
          if (data.uiscreen != [UIScreen mainScreen]) {
 --- a/src/video/uikit/SDL_uikitmessagebox.m
 +++ b/src/video/uikit/SDL_uikitmessagebox.m
-@@ -99,7 +99,22 @@
+@@ -99,6 +99,21 @@
      }
  
      if (window == nil || window.rootViewController == nil) {
