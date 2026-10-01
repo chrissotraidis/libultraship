@@ -32,6 +32,16 @@ endfunction()
 message(STATUS "Trying to apply patch ${patch_file}")
 patch_if_needed()
 
+# An additive follow-up can upgrade a previously applied version of this patch.
+# Validate the complete final patch, not just the follow-up, before succeeding.
+if(NOT ret EQUAL 0 AND DEFINED fallback_patch_file)
+    execute_process(COMMAND git apply ${fallback_patch_file}
+        RESULT_VARIABLE upgrade_ret ERROR_QUIET)
+    if(upgrade_ret EQUAL 0)
+        check_patch()
+    endif()
+endif()
+
 if(NOT ret EQUAL 0)
     message(FATAL_ERROR "Failed to apply patch ${patch_file}; dependency files were preserved. Inspect the checkout before retrying.")
 else()
