@@ -88,7 +88,7 @@ void CheckUpload(uint16_t imageWidth, uint16_t imageHeight, uint32_t loadedBytes
         metadata.height = imageHeight;
         metadata.h_byte_scale = metadata.v_pixel_scale = 1;
         metadata.type = TextureType::RGBA32bpp;
-        metadata.resource = std::make_shared<Texture>();
+        metadata.resource = std::make_shared<Texture>(std::make_shared<Ship::ResourceInitData>());
         metadata.resource->ImageDataSize = imageBytes;
         interpreter.ImportTextureRaw(0, false);
         EXPECT_EQ(backend.calls, 1);
