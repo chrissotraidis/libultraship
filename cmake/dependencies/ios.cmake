@@ -3,37 +3,40 @@ include(FetchContent)
 #=================== SDL2 ===================
 find_package(SDL2 QUIET)
 if (NOT ${SDL2_FOUND})
-    # SDL 2.32.10 predates UIKit scene startup required by the latest SDK.
+    # SDL 2.32.10 predates UIKit scene startup required by the latest SDK. The
+    # patch matches chrissotraidis/SDL pads/2.32.10-uikit-scenes (090b0c5a):
+    # scene startup plus window ownership by the scene that started SDL.
     # Use the same edit-preserving patch mechanism as other source dependencies.
     set(sdl2_scene_patch ${CMAKE_CURRENT_SOURCE_DIR}/cmake/dependencies/patches/sdl2-uikit-scenes.patch)
-    set(sdl2_orientation_patch ${CMAKE_CURRENT_SOURCE_DIR}/cmake/dependencies/patches/sdl2-uikit-orientation.patch)
+    set(sdl2_window_ownership_patch ${CMAKE_CURRENT_SOURCE_DIR}/cmake/dependencies/patches/sdl2-uikit-window-ownership.patch)
     FetchContent_Declare(
         SDL2
         GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
         GIT_TAG release-2.32.10
         PATCH_COMMAND ${CMAKE_COMMAND} -Dpatch_file=${sdl2_scene_patch}
-            -Dfallback_patch_file=${sdl2_orientation_patch}
+            -Dfallback_patch_file=${sdl2_window_ownership_patch}
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/dependencies/git-patch.cmake
         OVERRIDE_FIND_PACKAGE
     )
     FetchContent_MakeAvailable(SDL2)
 endif()
 
-# Check the complete scene/orientation patch even when reusing populated SDL.
-# Its additive fallback upgrades old scene-only caches without a source reset.
+# Check the complete scene patch even when reusing populated SDL. Its additive
+# fallback upgrades caches holding the previous scene/orientation patch
+# without a source reset.
 # Only patch our FetchContent dependency, never an externally installed SDL2.
 FetchContent_GetProperties(SDL2)
 if (sdl2_POPULATED)
     execute_process(
         COMMAND ${CMAKE_COMMAND}
             -Dpatch_file=${CMAKE_CURRENT_SOURCE_DIR}/cmake/dependencies/patches/sdl2-uikit-scenes.patch
-            -Dfallback_patch_file=${CMAKE_CURRENT_SOURCE_DIR}/cmake/dependencies/patches/sdl2-uikit-orientation.patch
+            -Dfallback_patch_file=${CMAKE_CURRENT_SOURCE_DIR}/cmake/dependencies/patches/sdl2-uikit-window-ownership.patch
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/dependencies/git-patch.cmake
         WORKING_DIRECTORY ${sdl2_SOURCE_DIR}
-        RESULT_VARIABLE sdl2_orientation_result
+        RESULT_VARIABLE sdl2_scene_result
     )
-    if (NOT sdl2_orientation_result EQUAL 0)
-        message(FATAL_ERROR "SDL2 scene orientation patch failed; dependency files were preserved.")
+    if (NOT sdl2_scene_result EQUAL 0)
+        message(FATAL_ERROR "SDL2 UIKit scene patch failed; dependency files were preserved.")
     endif()
 endif()
 
