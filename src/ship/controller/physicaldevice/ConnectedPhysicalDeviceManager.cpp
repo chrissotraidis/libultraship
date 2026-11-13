@@ -6,6 +6,12 @@
 #include <TargetConditionals.h>
 #endif
 
+#ifdef __IOS__
+// SpaghettiPad's touch shell auto-hides only while a usable controller owns
+// Player 1. Weak so non-SpaghettiPad iOS builds link unchanged.
+extern "C" __attribute__((weak)) void SpaghettiPad_SetPlayerOneControllerReady(int ready);
+#endif
+
 namespace Ship {
 namespace {
 bool IsUsableController(int32_t instanceId, SDL_GameController* gamepad) {
@@ -13,6 +19,16 @@ bool IsUsableController(int32_t instanceId, SDL_GameController* gamepad) {
     return gamepad != nullptr && SDL_GameControllerGetAttached(gamepad) && joystick != nullptr &&
            SDL_JoystickInstanceID(joystick) == instanceId;
 }
+
+#ifdef __IOS__
+bool HasGameplayControls(SDL_GameController* gamepad) {
+    return SDL_GameControllerHasAxis(gamepad, SDL_CONTROLLER_AXIS_LEFTX) &&
+           SDL_GameControllerHasAxis(gamepad, SDL_CONTROLLER_AXIS_LEFTY) &&
+           SDL_GameControllerHasButton(gamepad, SDL_CONTROLLER_BUTTON_A) &&
+           SDL_GameControllerHasButton(gamepad, SDL_CONTROLLER_BUTTON_B) &&
+           SDL_GameControllerHasButton(gamepad, SDL_CONTROLLER_BUTTON_START);
+}
+#endif
 } // namespace
 
 ConnectedPhysicalDeviceManager::ConnectedPhysicalDeviceManager() {
@@ -174,9 +190,21 @@ void ConnectedPhysicalDeviceManager::ReconcileConnectedSDLGamepads(const char* r
     bool hasExternalController = std::any_of(currentDevices.begin(), currentDevices.end(), [](const auto& device) {
         return !device.isTouchController;
     });
+    // With an external controller present, a touch controller the player chose
+    // to keep feeds Player 1 alongside it without owning a player slot, so
+    // controller assignments never move because of touch.
+    std::vector<int32_t> sharedTouchInstanceIds;
     if (hasExternalController) {
-        std::erase_if(currentDevices, [](const auto& device) { return device.isTouchController; });
+        for (const auto& device : currentDevices) {
+            if (device.isTouchController) {
+                sharedTouchInstanceIds.push_back(device.instanceId);
+            }
+        }
     }
+    auto isSharedTouch = [&sharedTouchInstanceIds](int32_t instanceId) {
+        return std::find(sharedTouchInstanceIds.begin(), sharedTouchInstanceIds.end(), instanceId) !=
+               sharedTouchInstanceIds.end();
+    };
 
     std::vector<int32_t> currentInstanceIds;
     currentInstanceIds.reserve(currentDevices.size());
@@ -235,7 +263,8 @@ void ConnectedPhysicalDeviceManager::ReconcileConnectedSDLGamepads(const char* r
     std::vector<int32_t> usableInstanceIds;
     for (const auto& device : currentDevices) {
         auto gamepad = mConnectedSDLGamepads.find(device.instanceId);
-        if (gamepad != mConnectedSDLGamepads.end() && IsUsableController(device.instanceId, gamepad->second)) {
+        if (gamepad != mConnectedSDLGamepads.end() && IsUsableController(device.instanceId, gamepad->second) &&
+            !isSharedTouch(device.instanceId)) {
             usableInstanceIds.push_back(device.instanceId);
         }
     }
@@ -270,6 +299,19 @@ void ConnectedPhysicalDeviceManager::ReconcileConnectedSDLGamepads(const char* r
                 mIgnoredInstanceIds[port].insert(instanceId);
             }
         }
+    }
+    for (int32_t instanceId : sharedTouchInstanceIds) {
+        mIgnoredInstanceIds[0].erase(instanceId);
+    }
+
+    if (SpaghettiPad_SetPlayerOneControllerReady != nullptr) {
+        int32_t playerOne = mIOSControllerSlots.InstanceForSlot(0);
+        auto gamepad = mConnectedSDLGamepads.find(playerOne);
+        auto name = mConnectedSDLGamepadNames.find(playerOne);
+        bool ready = gamepad != mConnectedSDLGamepads.end() && IsUsableController(playerOne, gamepad->second) &&
+                     (name == mConnectedSDLGamepadNames.end() || name->second != "SpaghettiPad Touch Controller") &&
+                     HasGameplayControls(gamepad->second);
+        SpaghettiPad_SetPlayerOneControllerReady(ready ? 1 : 0);
     }
 #endif
 }
