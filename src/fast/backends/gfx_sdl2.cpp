@@ -238,6 +238,18 @@ GfxWindowBackendSDL2::~GfxWindowBackendSDL2() {
 }
 
 void GfxWindowBackendSDL2::SetFullscreenImpl(bool on, bool call_callback) {
+#ifdef __IOS__
+    // An iOS application window is already full-screen. Switching SDL desktop
+    // display modes can detach or invalidate the Metal drawable: on an external
+    // display (a TV) the game kept running but showed a black screen, because
+    // the switch used the iPad's own display mode. Same guard as HarkinianPad.
+    mFullScreen = false;
+    if (mOnFullscreenChanged != nullptr && call_callback) {
+        mOnFullscreenChanged(false);
+    }
+    return;
+#endif
+
     if (mFullScreen == on) {
         return;
     }
